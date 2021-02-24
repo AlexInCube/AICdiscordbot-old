@@ -20,7 +20,7 @@ bot.load_extension("audio_commands")
 
 cog = bot.get_cog("audio_commands")
 commands = cog.get_commands()
-print("Loaded commands: "+str([c.name for c in commands]))
+print("Loaded audio commands: "+str([c.name for c in commands]))
 # Команда roll аналогичная той что в Доте 2
 @bot.command()
 async def roll(ctx, *args):
@@ -50,11 +50,25 @@ async def leave(ctx):
     else:
         await ctx.send("Я не нахожусь ни на одном канале")
 
+@bot.command()
+async def help_aic(ctx):
+    await ctx.send("У всех команд бота, префикс // \n"
+                   "Сами команды: \n"
+                   "extract_audio [ссылка на видео с youtube] - Извлекает аудиодорожку из видео на ютубе и скидывает её в текстовый канал. \n"
+                   "play [ссылка на видео с youtube] - Играет аудиодорожку из видео, в том голосовом канале где был человек который призвал бота этой командой. \n"
+                   "play_file [прикреплённый файл] - Играет аудиодорожку из прикреплённого файла.\n"
+                   "pause - Приостанавливает, но не сбрасывает проигрывание аудиодорожки. \n"
+                   "resume - Возобновляет проигрывание аудиодорожки, если оно было остановлено командой pause. \n"
+                   "stop - Сбрасывает проигрывание аудиодорожки. \n"
+                   "join - призывает бота на канал где находится человек писавший эту команду \n"
+                   "leave - выкидывает бота с канала \n"
+                   "roll [*минимальное/максимальное значение, *максимальное значение] - Если просто написать roll, будет случайно выбрано число от 0 до 100.\n")
+
 @bot.event
 async def on_ready():
     # Если бот запустился
     print("Bot online")
-    # await client.get_channel(813753159070515242).send("Здарова всем!")
+    await bot.change_presence(activity=discord.Game("//help_aic"))
 
 
 @bot.event
@@ -66,9 +80,8 @@ async def on_message(message):
     # Булим Keynadi
     if message.author.id == 194369371169095680:
         if random.random() > 0.99:
-            bulling_array = ["Как там поживает EximiaWorld?", "Когда разбанишь продавца говна?",
-                             "Лучше бы деньги на лечение себе отложил."]
-        await message.channel.send(random.choice(bulling_array))
+            bulling_array = ["Как там поживает EximiaWorld?", "Когда разбанишь продавца говна?","Лучше бы деньги на лечение себе отложил."]
+            await message.channel.send(random.choice(bulling_array))
 
     # Эта строчка обязательно, иначе никакие команды не будут работать
     await bot.process_commands(message)

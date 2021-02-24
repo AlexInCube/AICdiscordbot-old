@@ -1,5 +1,6 @@
 import asyncio
 import os
+from asyncio import sleep
 
 import discord
 import requests
@@ -106,6 +107,37 @@ class audio_commands(commands.Cog):
 
         voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
         voice.is_playing()
+
+    @commands.command()
+    async def play_file(self, ctx):
+        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+        if voice:
+            if voice.is_connected():
+                voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+        else:
+            channel = ctx.author.voice
+            if channel:
+                await channel.channel.connect()
+                voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+            else:
+                await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
+                return
+
+        for attach in ctx.message.attachments:
+            await attach.save(f"{attach.filename}")
+
+        voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r""+attach.filename))
+
+        while voice.is_playing():
+            sleep(.1)
+
+        song_there = os.path.isfile(r"" + attach.filename)
+        try:
+            if song_there:
+                os.remove(r"" + attach.filename)
+        except PermissionError:
+            return
+
 
 
     @commands.command()
