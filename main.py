@@ -1,4 +1,4 @@
-
+import time
 
 import discord
 
@@ -32,6 +32,10 @@ async def roll(ctx, *args):
         await ctx.send(random.randint(int(args[0]), int(args[1])))
 
 @bot.command()
+async def flip(ctx):
+    await ctx.send(random.choice(["Орёл","Решка"]))
+
+@bot.command()
 async def join(ctx):
     voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
     if voice and voice.is_connected():
@@ -51,6 +55,15 @@ async def leave(ctx):
         await ctx.send("Я не нахожусь ни на одном канале")
 
 @bot.command()
+async def ping(ctx):
+    """ Pong! """
+    before = time.monotonic()
+    before_ws = int(round(bot.latency * 1000, 1))
+    message = await ctx.send("🏓 Понг")
+    ping = (time.monotonic() - before) * 1000
+    await message.edit(content=f"🏓 Пинг: {int(ping)}")
+
+@bot.command()
 async def help_aic(ctx):
     await ctx.send("У всех команд бота, префикс // \n"
                    "Сами команды: \n"
@@ -60,9 +73,29 @@ async def help_aic(ctx):
                    "pause - Приостанавливает, но не сбрасывает проигрывание аудиодорожки. \n"
                    "resume - Возобновляет проигрывание аудиодорожки, если оно было остановлено командой pause. \n"
                    "stop - Сбрасывает проигрывание аудиодорожки. \n"
+                   "ping - показывает задержку между вами и ботом \n"
                    "join - призывает бота на канал где находится человек писавший эту команду \n"
                    "leave - выкидывает бота с канала \n"
-                   "roll [*минимальное/максимальное значение, *максимальное значение] - Если просто написать roll, будет случайно выбрано число от 0 до 100.\n")
+                   "roll - [*минимальное/максимальное значение, *максимальное значение] - Если просто написать roll, будет случайно выбрано число от 0 до 100.\n"
+                   "flip - Подкинуть монетку.\n"
+                   "slot - Сыграть в слот машину.\n")
+
+@bot.command()
+async def slot(ctx):
+    """ Roll the slot machine """
+    emojis = "🍎🍊🍐🍋🍉🍇🍓🍒"
+    a = random.choice(emojis)
+    b = random.choice(emojis)
+    c = random.choice(emojis)
+
+    slotmachine = f"**[ {a} {b} {c} ]\n{ctx.author.name}**,"
+
+    if (a == b == c):
+        await ctx.send(f"{slotmachine} Всё совпадает, вы победили! 🎉")
+    elif (a == b) or (a == c) or (b == c):
+        await ctx.send(f"{slotmachine} 2 совпадения в ряду, вы победили! 🎉")
+    else:
+        await ctx.send(f"{slotmachine} Нет совпадений, вы проиграли 😢")
 
 @bot.event
 async def on_ready():
@@ -80,7 +113,7 @@ async def on_message(message):
     # Булим Keynadi
     if message.author.id == 194369371169095680:
         if random.random() > 0.99:
-            bulling_array = ["Как там поживает EximiaWorld?", "Когда разбанишь продавца говна?","Лучше бы деньги на лечение себе отложил."]
+            bulling_array = ["Как там поживает EximiaWorld?"]
             await message.channel.send(random.choice(bulling_array))
 
     # Эта строчка обязательно, иначе никакие команды не будут работать
