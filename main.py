@@ -1,106 +1,106 @@
-import time
-
-import discord
-
 import random
 
-
-import youtube_dl
+import discord
+import mysql.connector
 from discord.ext import commands
 from discord.ext.commands import bot
-
-
+from getpass import getpass
+from mysql.connector import errorcode
 from config import settings
 
 bot = commands.Bot(command_prefix=settings["prefix"])
 
+#region Подключаемся к базе данных MySQL
 
-bot.load_extension("audio_commands")
+DB_NAME = "userdata"
+config = {
+    "host": "localhost",
+    "user": "AlexInCube",#input("Имя пользователя: "),
+    "password": "root",#getpass("Пароль: "),
+}
 
 
-cog = bot.get_cog("audio_commands")
-commands = cog.get_commands()
-print("Loaded audio commands: "+str([c.name for c in commands]))
-# Команда roll аналогичная той что в Доте 2
-@bot.command()
-async def roll(ctx, *args):
-    if len(args) == 0:
-        await ctx.send(random.randint(0, 100))
-    elif len(args) == 1:
-        await ctx.send(random.randint(0, int(args[0])))
-    elif len(args) == 2:
-        await ctx.send(random.randint(int(args[0]), int(args[1])))
 
-@bot.command()
-async def flip(ctx):
-    await ctx.send(random.choice(["Орёл","Решка"]))
 
-@bot.command()
-async def join(ctx):
-    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-    if voice and voice.is_connected():
-        await ctx.send("Я уже зашёл на канал")
+
+def create_database(cursor):
+    try:
+        cursor.execute(
+            "CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(DB_NAME))
+    except mysql.connector.Error as err:
+        print("Не удалось создать базу данных: {}".format(err))
+        exit(1)
+def use_database(cur):
+    try:
+        cur.execute("USE {}".format(DB_NAME))
+        print("Используем базу {}".format(DB_NAME))
+    except mysql.connector.Error as err:
+        create_database(cur)
+        print("База данных {} успешно создана.".format(DB_NAME))
+        cnx.database = DB_NAME
+#Пытаемся подключиться к MySQL серверу
+try:
+    cnx = mysql.connector.Connect(**config)
+    cur = cnx.cursor()
+
+    show_db_query = "SHOW DATABASES"
+    print("Список баз данных: ")
+    cur.execute(show_db_query)
+    dblist = cur.fetchall()
+    print(dblist)
+    #Пытаемся использовать базу которую указали в DB_NAME
+    use_database(cur)
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        print("Что-то не так с логином или паролем")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        print("Не найдена база данных {} ".format(DB_NAME))
     else:
-        channel = ctx.author.voice.channel
-        await channel.connect()
+        print("Не удалось подключиться к базе даннных: ")
+        print(err)
 
 
-@bot.command()
-async def leave(ctx):
-    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-    if voice:
-        if voice.is_connected():
-            await voice.disconnect()
+#Создаём таблицы в базе
+TABLES = {}
+TABLES['user'] = (
+    "CREATE TABLE `user`("
+    "UserID BIGINT UNSIGNED NOT NULL UNIQUE,"
+    "Score int DEFAULT 0"
+    ") ENGINE=InnoDB"
+)
+
+for table_name in TABLES:
+    table_description = TABLES[table_name]
+    try:
+        print("Создаём таблицу {}: ".format(table_name), end='')
+        cur.execute(table_description)
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+            print("Уже существует.")
+        else:
+            print(err.msg)
     else:
-        await ctx.send("Я не нахожусь ни на одном канале")
+        print("OK")
 
-@bot.command()
-async def ping(ctx):
-    """ Pong! """
-    before = time.monotonic()
-    before_ws = int(round(bot.latency * 1000, 1))
-    message = await ctx.send("🏓 Понг")
-    ping = (time.monotonic() - before) * 1000
-    await message.edit(content=f"🏓 Пинг: {int(ping)}")
+#cur.close()
+#cnx.close()
 
-@bot.command()
-async def help_aic(ctx):
-    await ctx.send("У всех команд бота, префикс // \n"
-                   "Сами команды: \n"
-                   "extract_audio [ссылка на видео с youtube] - Извлекает аудиодорожку из видео на ютубе и скидывает её в текстовый канал. \n"
-                   "play [ссылка на видео с youtube] - Играет аудиодорожку из видео, в том голосовом канале где был человек который призвал бота этой командой. \n"
-                   "play_file [прикреплённый файл] - Играет аудиодорожку из прикреплённого файла.\n"
-                   "pause - Приостанавливает, но не сбрасывает проигрывание аудиодорожки. \n"
-                   "resume - Возобновляет проигрывание аудиодорожки, если оно было остановлено командой pause. \n"
-                   "stop - Сбрасывает проигрывание аудиодорожки. \n"
-                   "ping - показывает задержку между вами и ботом \n"
-                   "join - призывает бота на канал где находится человек писавший эту команду \n"
-                   "leave - выкидывает бота с канала \n"
-                   "roll - [*минимальное/максимальное значение, *максимальное значение] - Если просто написать roll, будет случайно выбрано число от 0 до 100.\n"
-                   "flip - Подкинуть монетку.\n"
-                   "slot - Сыграть в слот машину.\n")
+#endregion
+def load_cog_commands(filename):
+    bot.load_extension(filename)
+    cog = bot.get_cog(filename)
+    commands = cog.get_commands()
+    print("Загружено комманд: " + filename + " " + str([c.name for c in commands]))
 
-@bot.command()
-async def slot(ctx):
-    """ Roll the slot machine """
-    emojis = "🍎🍊🍐🍋🍉🍇🍓🍒"
-    a = random.choice(emojis)
-    b = random.choice(emojis)
-    c = random.choice(emojis)
 
-    slotmachine = f"**[ {a} {b} {c} ]\n{ctx.author.name}**,"
-
-    if (a == b == c):
-        await ctx.send(f"{slotmachine} Всё совпадает, вы победили! 🎉")
-    elif (a == b) or (a == c) or (b == c):
-        await ctx.send(f"{slotmachine} 2 совпадения в ряду, вы победили! 🎉")
-    else:
-        await ctx.send(f"{slotmachine} Нет совпадений, вы проиграли 😢")
-
+load_cog_commands("other_commands")
+load_cog_commands("audio_commands")
+load_cog_commands("user_data_commands")
+#region События бота
 @bot.event
 async def on_ready():
     # Если бот запустился
-    print("Bot online")
+    print("Бот готов принимать комманды")
     await bot.change_presence(activity=discord.Game("//help_aic"))
 
 
@@ -118,6 +118,5 @@ async def on_message(message):
 
     # Эта строчка обязательно, иначе никакие команды не будут работать
     await bot.process_commands(message)
-
-
+#endregion
 bot.run(settings['token'])

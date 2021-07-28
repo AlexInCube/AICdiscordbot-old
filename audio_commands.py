@@ -1,4 +1,3 @@
-import asyncio
 import os
 from asyncio import sleep
 
@@ -6,7 +5,6 @@ import discord
 import requests
 import youtube_dl
 from discord.ext import commands
-from requests import get
 from youtube_dl import YoutubeDL
 
 from main import bot
