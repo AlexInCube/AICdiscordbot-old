@@ -10,17 +10,22 @@ from config import settings
 
 bot = commands.Bot(command_prefix=settings["prefix"])
 
-#region Подключаемся к базе данных MySQL
+
+def load_cog_commands(filename):
+    bot.load_extension(filename)
+    cog = bot.get_cog(filename)
+    commands = cog.get_commands()
+    print("Загружено комманд: " + filename + " " + str([c.name for c in commands]))
+
+load_cog_commands("audio_commands")
+# region Подключаемся к базе данных MySQL
 
 DB_NAME = "userdata"
 config = {
     "host": "localhost",
-    "user": "AlexInCube",#input("Имя пользователя: "),
-    "password": "root",#getpass("Пароль: "),
+    "user": "AlexInCube",  # input("Имя пользователя: "),
+    "password": "root",  # getpass("Пароль: "),
 }
-
-
-
 
 
 def create_database(cursor):
@@ -30,15 +35,19 @@ def create_database(cursor):
     except mysql.connector.Error as err:
         print("Не удалось создать базу данных: {}".format(err))
         exit(1)
+
+
 def use_database(cur):
     try:
         cur.execute("USE {}".format(DB_NAME))
         print("Используем базу {}".format(DB_NAME))
-    except mysql.connector.Error as err:
+    except mysql.connector.Error:
         create_database(cur)
         print("База данных {} успешно создана.".format(DB_NAME))
         cnx.database = DB_NAME
-#Пытаемся подключиться к MySQL серверу
+
+
+# Пытаемся подключиться к MySQL серверу
 try:
     cnx = mysql.connector.Connect(**config)
     cur = cnx.cursor()
@@ -48,7 +57,7 @@ try:
     cur.execute(show_db_query)
     dblist = cur.fetchall()
     print(dblist)
-    #Пытаемся использовать базу которую указали в DB_NAME
+    # Пытаемся использовать базу которую указали в DB_NAME
     use_database(cur)
 except mysql.connector.Error as err:
     if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -59,15 +68,13 @@ except mysql.connector.Error as err:
         print("Не удалось подключиться к базе даннных: ")
         print(err)
 
-
-#Создаём таблицы в базе
-TABLES = {}
-TABLES['user'] = (
+# Создаём таблицы в базе
+TABLES = {'user': (
     "CREATE TABLE `user`("
     "UserID BIGINT UNSIGNED NOT NULL UNIQUE,"
     "Score int DEFAULT 0"
     ") ENGINE=InnoDB"
-)
+)}
 
 for table_name in TABLES:
     table_description = TABLES[table_name]
@@ -82,26 +89,25 @@ for table_name in TABLES:
     else:
         print("OK")
 
-#cur.close()
-#cnx.close()
-
-#endregion
-def load_cog_commands(filename):
-    bot.load_extension(filename)
-    cog = bot.get_cog(filename)
-    commands = cog.get_commands()
-    print("Загружено комманд: " + filename + " " + str([c.name for c in commands]))
+# endregion
 
 
 load_cog_commands("other_commands")
-load_cog_commands("audio_commands")
 load_cog_commands("user_data_commands")
-#region События бота
+
+
+# region События бота
 @bot.event
 async def on_ready():
     # Если бот запустился
     print("Бот готов принимать комманды")
     await bot.change_presence(activity=discord.Game("//help_aic"))
+
+
+@bot.event
+async def on_disconnect():
+    cur.close()
+    cnx.close()
 
 
 @bot.event
@@ -117,6 +123,11 @@ async def on_message(message):
             await message.channel.send(random.choice(bulling_array))
 
     # Эта строчка обязательно, иначе никакие команды не будут работать
-    await bot.process_commands(message)
-#endregion
+    try:
+        await bot.process_commands(message)
+    except:
+        return 0
+
+
+# endregion
 bot.run(settings['token'])
