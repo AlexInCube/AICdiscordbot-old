@@ -10,6 +10,7 @@ from config import settings
 
 bot = commands.Bot(command_prefix=settings["prefix"])
 
+admin_id = 290168459944263680
 
 def load_cog_commands(filename):
     bot.load_extension(filename)
@@ -23,8 +24,8 @@ load_cog_commands("audio_commands")
 DB_NAME = "userdata"
 config = {
     "host": "localhost",
-    "user": "AlexInCube",  # input("Имя пользователя: "),
-    "password": "root",  # getpass("Пароль: "),
+    "user": input("Имя пользователя: "),
+    "password": getpass("Пароль: "),
 }
 
 

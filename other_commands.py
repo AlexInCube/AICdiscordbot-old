@@ -5,7 +5,7 @@ import time
 import discord
 from discord.ext import commands
 
-from main import bot
+from main import bot, admin_id
 from user_data_commands import change_balance, get_balance, create_balance
 
 
@@ -25,8 +25,6 @@ class other_commands(commands.Cog):
                        "resume - Возобновляет проигрывание аудиодорожки, если оно было остановлено командой pause. \n"
                        "stop - Сбрасывает проигрывание аудиодорожки. \n"
                        "ping - показывает задержку между вами и ботом \n"
-                       "join - призывает бота на канал где находится человек писавший эту команду \n"
-                       "leave - выкидывает бота с канала \n"
                        "roll - [*минимальное/максимальное значение, *максимальное значение] - Если просто написать roll, будет случайно выбрано число от 0 до 100.\n"
                        "flip - Подкинуть монетку.\n"
                        "slot - Сыграть в слот машину.\n"
@@ -51,13 +49,14 @@ class other_commands(commands.Cog):
         await ctx.send(random.choice(["Орёл", "Решка"]))
 
     @commands.command()
-    async def join(self, ctx):
-        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-        if voice and voice.is_connected():
-            await ctx.send("Я уже зашёл на канал")
-        else:
-            channel = ctx.author.voice.channel
-            await channel.connect()
+    async def join(self, ctx, channel_name):
+        if ctx.message.author.id == admin_id:
+            voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+            if voice and voice.is_connected():
+                await ctx.send("Я уже зашёл на канал")
+            else:
+                channel = discord.utils.get(ctx.guild.channels, name=channel_name)
+                await channel.connect()
 
     @commands.command()
     async def leave(self, ctx):
