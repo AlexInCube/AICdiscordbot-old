@@ -1,3 +1,4 @@
+import asyncio
 import os
 from asyncio import sleep
 
@@ -127,7 +128,7 @@ class audio_commands(commands.Cog):
         voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r""+attach.filename))
 
         while voice.is_playing():
-            sleep(.1)
+            await asyncio.sleep(0.1)
 
         song_there = os.path.isfile(r"" + attach.filename)
         try:
