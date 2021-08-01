@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sndhdr
 from asyncio import sleep
 
 import discord
@@ -114,6 +115,19 @@ class audio_commands(commands.Cog):
 
     @commands.command()
     async def play_file(self, ctx):
+        if ctx.message.attachments == []:
+            await ctx.send("Отсутствует файл")
+            return 0
+
+        attach = ctx.message.attachments[0]
+
+        if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
+            pass
+        else:
+            await ctx.send("Файл "f"{attach.filename}"+" не является аудиофайлом")
+            return 0
+
+
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice:
             if voice.is_connected():
@@ -127,8 +141,7 @@ class audio_commands(commands.Cog):
                 await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
                 return
 
-        for attach in ctx.message.attachments:
-            await attach.save(f"{attach.filename}")
+        await attach.save(f"{attach.filename}")
 
         if voice.is_playing():
             voice.stop()

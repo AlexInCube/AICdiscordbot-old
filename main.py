@@ -26,17 +26,13 @@ load_cog_commands("audio_commands")
 DB_NAME = "userdata"
 
 try:
-    file = open("settings.json",)
-    data = json.load(file)
     config = {
         "host": "localhost",
-        "user": data["login"],
-        "password": data["password"]
+        "user": settings["login"],
+        "password": settings["password"]
     }
-
-    file.close()
 except:
-    print("Файла \"settings.json\" не существует, введите логин и пароль вручную")
+    print("Вы не указали данные или указали неверно в config.py, введите логин и пароль вручную")
     config = {
         "host": "localhost",
         "user": input("Имя пользователя: "),
