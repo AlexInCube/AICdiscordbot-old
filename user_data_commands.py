@@ -1,9 +1,11 @@
 from discord.ext import commands
 
-from main import cur, cnx
+from main import cur, cnx, check_connection_to_mysql
 
 
 def create_balance(user_id):
+    check_connection_to_mysql()
+
     try:
         add_user = ("INSERT INTO user "
                     "(UserID, score) "
@@ -18,6 +20,8 @@ def create_balance(user_id):
 
 
 def get_balance(user_id):
+    check_connection_to_mysql()
+
     query = ("SELECT UserID, Score FROM user "
              "WHERE UserID = %s")
 
@@ -27,6 +31,8 @@ def get_balance(user_id):
 
 
 def change_balance(ctx, new_money):
+    check_connection_to_mysql()
+
     user_id = ctx.message.author.id
     query = ("UPDATE User Set Score = %s WHERE UserID = %s")
     cur.execute(query, (new_money, user_id))

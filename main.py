@@ -1,5 +1,5 @@
 import random
-
+import json
 import discord
 import mysql.connector
 from discord.ext import commands
@@ -12,21 +12,36 @@ bot = commands.Bot(command_prefix=settings["prefix"])
 
 admin_id = 290168459944263680
 
+
 def load_cog_commands(filename):
     bot.load_extension(filename)
     cog = bot.get_cog(filename)
     commands = cog.get_commands()
     print("Загружено комманд: " + filename + " " + str([c.name for c in commands]))
 
+
 load_cog_commands("audio_commands")
 # region Подключаемся к базе данных MySQL
 
 DB_NAME = "userdata"
-config = {
-    "host": "localhost",
-    "user": input("Имя пользователя: "),
-    "password": getpass("Пароль: "),
-}
+
+try:
+    file = open("settings.json",)
+    data = json.load(file)
+    config = {
+        "host": "localhost",
+        "user": data["login"],
+        "password": data["password"]
+    }
+
+    file.close()
+except:
+    print("Файла \"settings.json\" не существует, введите логин и пароль вручную")
+    config = {
+        "host": "localhost",
+        "user": input("Имя пользователя: "),
+        "password": getpass("Пароль: "),
+    }
 
 
 def create_database(cursor):
@@ -48,7 +63,28 @@ def use_database(cur):
         cnx.database = DB_NAME
 
 
-# Пытаемся подключиться к MySQL серверу
+def connect_to_mysql_server():
+    # Пытаемся подключиться к MySQL серверу
+    try:
+        cnx = mysql.connector.Connect(**config)
+        cur = cnx.cursor()
+        # Пытаемся использовать базу которую указали в DB_NAME
+        use_database(cur)
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Что-то не так с логином или паролем")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("Не найдена база данных {} ".format(DB_NAME))
+        else:
+            print("Не удалось подключиться к базе даннных: ")
+            print(err)
+
+
+def check_connection_to_mysql():
+    if not cnx.is_connected():
+        connect_to_mysql_server()
+
+
 try:
     cnx = mysql.connector.Connect(**config)
     cur = cnx.cursor()
@@ -68,7 +104,6 @@ except mysql.connector.Error as err:
     else:
         print("Не удалось подключиться к базе даннных: ")
         print(err)
-
 # Создаём таблицы в базе
 TABLES = {'user': (
     "CREATE TABLE `user`("

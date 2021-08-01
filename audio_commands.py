@@ -21,7 +21,7 @@ ytdl_format_options = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
+    'source_address': '0.0.0.0'  # bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 
 ffmpeg_options = {
@@ -30,13 +30,18 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
+
 def search(arg):
-    with YoutubeDL({'format': 'bestaudio', 'noplaylist':'True'}) as ydl:
-        try: requests.get(arg)
-        except: info = ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]
-        else: info = ydl.extract_info(arg, download=False)
+    with YoutubeDL({'format': 'bestaudio', 'noplaylist': 'True'}) as ydl:
+        try:
+            requests.get(arg)
+        except:
+            info = ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]
+        else:
+            info = ydl.extract_info(arg, download=False)
 
     return (info, info['formats'][0]['url'])
+
 
 class audio_commands(commands.Cog):
     def __init__(self, bot):
@@ -53,7 +58,7 @@ class audio_commands(commands.Cog):
                 info = ydl.extract_info(url, download=False)
 
         audio_name = str(info["title"])
-        await ctx.send("Извлекаем звук из: "+audio_name)
+        await ctx.send("Извлекаем звук из: " + audio_name)
 
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -64,27 +69,25 @@ class audio_commands(commands.Cog):
             }],
         }
 
-
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
         for file in os.listdir("./"):
             if file.endswith(".mp3"):
-                os.rename(file, audio_name+".mp3")
+                os.rename(file, audio_name + ".mp3")
 
-        file_size = os.path.getsize(audio_name+".mp3")
+        file_size = os.path.getsize(audio_name + ".mp3")
         if file_size >= 8000000:
             await ctx.send("Файл весит больше 8МБ, из-за этого его нельзя отправить")
         else:
-            await ctx.send(file=discord.File(r""+audio_name+".mp3"))
+            await ctx.send(file=discord.File(r"" + audio_name + ".mp3"))
 
-        song_there = os.path.isfile(audio_name+".mp3")
+        song_there = os.path.isfile(audio_name + ".mp3")
         try:
             if song_there:
-                os.remove(audio_name+".mp3")
+                os.remove(audio_name + ".mp3")
         except PermissionError:
             return
-
 
     @commands.command()
     async def play(self, ctx, *, query):
@@ -93,19 +96,21 @@ class audio_commands(commands.Cog):
             if voice.is_connected():
                 voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         else:
-            channel = ctx.author.voice
+            channel = ctx.author.voice.channel
             if channel:
-                await channel.channel.connect()
+                await channel.connect()
                 voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
             else:
-                await ctx.send(ctx.author.mention+" зайди сначала в голосовой канал")
+                await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
                 return
 
         FFMPEG_OPTS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
         video, source = search(query)
 
         voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
-        voice.is_playing()
+
+        user_name = ctx.message.author.display_name
+        await ctx.send(f"{user_name} " + "включил " + video["title"])
 
     @commands.command()
     async def play_file(self, ctx):
@@ -125,7 +130,13 @@ class audio_commands(commands.Cog):
         for attach in ctx.message.attachments:
             await attach.save(f"{attach.filename}")
 
-        voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r""+attach.filename))
+        if voice.is_playing():
+            voice.stop()
+
+        voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r"" + attach.filename))
+
+        user_name = ctx.message.author.display_name
+        await ctx.send(f"{user_name} " + "включил " + f"{attach.filename}")
 
         while voice.is_playing():
             await asyncio.sleep(0.1)
@@ -137,8 +148,6 @@ class audio_commands(commands.Cog):
         except PermissionError:
             return
 
-
-
     @commands.command()
     async def pause(self, ctx):
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
@@ -146,7 +155,6 @@ class audio_commands(commands.Cog):
             voice.pause()
         else:
             await ctx.send("Сейчас ничего не играет")
-
 
     @commands.command()
     async def resume(self, ctx):
@@ -156,11 +164,11 @@ class audio_commands(commands.Cog):
         else:
             await ctx.send("Аудио не на паузе")
 
-
     @commands.command()
     async def stop(self, ctx):
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         voice.stop()
+
 
 def setup(bot):
     bot.add_cog(audio_commands(bot))

@@ -60,7 +60,7 @@ class other_commands(commands.Cog):
 
     @commands.command()
     async def leave(self, ctx):
-        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+        voice = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
         if voice:
             if voice.is_connected():
                 await voice.disconnect()
