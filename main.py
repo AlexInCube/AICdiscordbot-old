@@ -1,16 +1,20 @@
 import random
-import json
+from getpass import getpass
+
 import discord
 import mysql.connector
 from discord.ext import commands
 from discord.ext.commands import bot
-from getpass import getpass
 from mysql.connector import errorcode
+
 from config import settings
 
 bot = commands.Bot(command_prefix=settings["prefix"])
 
 admin_id = 290168459944263680
+
+cnx = None
+cur = None
 
 
 def load_cog_commands(filename):
@@ -23,6 +27,7 @@ def load_cog_commands(filename):
 load_cog_commands("audio_commands")
 # region Подключаемся к базе данных MySQL
 
+
 DB_NAME = "userdata"
 
 try:
@@ -32,7 +37,7 @@ try:
         "password": settings["password"]
     }
 except:
-    print("Вы не указали данные или указали неверно в config.py, введите логин и пароль вручную")
+    print("Ошибка при чтении из config.py, введите логин и пароль вручную")
     config = {
         "host": "localhost",
         "user": input("Имя пользователя: "),
@@ -50,6 +55,7 @@ def create_database(cursor):
 
 
 def use_database(cur):
+    global cnx
     try:
         cur.execute("USE {}".format(DB_NAME))
         print("Используем базу {}".format(DB_NAME))
@@ -59,68 +65,78 @@ def use_database(cur):
         cnx.database = DB_NAME
 
 
-def connect_to_mysql_server():
-    # Пытаемся подключиться к MySQL серверу
+# Пытаемся подключиться к MySQL серверу
+def connect_to_mysql():
+    global cnx
+    global cur
     try:
         cnx = mysql.connector.Connect(**config)
         cur = cnx.cursor()
+        print("Подключение к MySQL произошло успешно")
         # Пытаемся использовать базу которую указали в DB_NAME
         use_database(cur)
+        return True
     except mysql.connector.Error as err:
         if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
             print("Что-то не так с логином или паролем")
         elif err.errno == errorcode.ER_BAD_DB_ERROR:
             print("Не найдена база данных {} ".format(DB_NAME))
         else:
-            print("Не удалось подключиться к базе даннных: ")
-            print(err)
+            print("Не удалось подключиться к базе даннных")
+            # print(err)
+        return False
+
+
+connect_to_mysql()
 
 
 def check_connection_to_mysql():
-    if not cnx.is_connected():
-        connect_to_mysql_server()
-
-
-try:
-    cnx = mysql.connector.Connect(**config)
-    cur = cnx.cursor()
-
-    show_db_query = "SHOW DATABASES"
-    print("Список баз данных: ")
-    cur.execute(show_db_query)
-    dblist = cur.fetchall()
-    print(dblist)
-    # Пытаемся использовать базу которую указали в DB_NAME
-    use_database(cur)
-except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Что-то не так с логином или паролем")
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Не найдена база данных {} ".format(DB_NAME))
-    else:
-        print("Не удалось подключиться к базе даннных: ")
-        print(err)
-# Создаём таблицы в базе
-TABLES = {'user': (
-    "CREATE TABLE `user`("
-    "UserID BIGINT UNSIGNED NOT NULL UNIQUE,"
-    "Score int DEFAULT 0"
-    ") ENGINE=InnoDB"
-)}
-
-for table_name in TABLES:
-    table_description = TABLES[table_name]
-    try:
-        print("Создаём таблицу {}: ".format(table_name), end='')
-        cur.execute(table_description)
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-            print("Уже существует.")
+    global cnx
+    if cnx is None:
+        trying = connect_to_mysql()
+        if trying:
+            pass
         else:
-            print(err.msg)
-    else:
-        print("OK")
+            return False
 
+    if cnx.is_connected():
+        return True
+    else:
+        print("Подключение к MySQL отсутствует, пытаемся подключиться")
+        try:
+            cnx.reconnect(2, 0)
+        except:
+            print("Не удалось подключиться")
+            return False
+
+        if cnx.is_connected():
+            use_database(cur)
+            print("Подключение к MySQL произошло успешно")
+            return True
+
+
+
+if check_connection_to_mysql():
+    # Создаём таблицы в базе
+    TABLES = {'user': (
+        "CREATE TABLE `user`("
+        "UserID BIGINT UNSIGNED NOT NULL UNIQUE,"
+        "Score int DEFAULT 0"
+        ") ENGINE=InnoDB"
+    )}
+
+    for table_name in TABLES:
+        table_description = TABLES[table_name]
+        try:
+            print("Создаём таблицу {}: ".format(table_name), end='')
+            cur.execute(table_description)
+        except mysql.connector.Error as err:
+            if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+                print("Уже существует.")
+            else:
+                print(err.msg)
+        else:
+            print("OK")
 # endregion
 
 
@@ -138,6 +154,8 @@ async def on_ready():
 
 @bot.event
 async def on_disconnect():
+    global cnx
+    global cur
     cur.close()
     cnx.close()
 

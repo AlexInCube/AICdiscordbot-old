@@ -1,10 +1,10 @@
 from discord.ext import commands
 
-from main import cur, cnx, check_connection_to_mysql
-
+import main
 
 def create_balance(user_id):
-    check_connection_to_mysql()
+    cur = main.cur
+    cnx = main.cnx
 
     try:
         add_user = ("INSERT INTO user "
@@ -20,7 +20,8 @@ def create_balance(user_id):
 
 
 def get_balance(user_id):
-    check_connection_to_mysql()
+    cur = main.cur
+
 
     query = ("SELECT UserID, Score FROM user "
              "WHERE UserID = %s")
@@ -31,7 +32,10 @@ def get_balance(user_id):
 
 
 def change_balance(ctx, new_money):
-    check_connection_to_mysql()
+    cur = main.cur
+    cnx = main.cnx
+
+    main.check_connection_to_mysql()
 
     user_id = ctx.message.author.id
     query = ("UPDATE User Set Score = %s WHERE UserID = %s")
@@ -45,9 +49,12 @@ class user_data_commands(commands.Cog):
 
     @commands.command()
     async def balance(self, ctx):
-        user_id = ctx.message.author.id
-        create_balance(user_id)
-        await ctx.send("<@" + str(user_id) + ">" + ", ваш баланс: " + str(get_balance(user_id)))
+        if main.check_connection_to_mysql():
+            user_id = ctx.message.author.id
+            create_balance(user_id)
+            await ctx.send("<@" + str(user_id) + ">" + ", ваш баланс: " + str(get_balance(user_id)))
+        else:
+            await ctx.send("Возникла проблема с подключением к серверу")
 
 
 def setup(bot):
