@@ -1,7 +1,5 @@
 import asyncio
 import os
-import sndhdr
-from asyncio import sleep
 
 import discord
 import requests
@@ -11,6 +9,7 @@ from youtube_dl import YoutubeDL
 
 from main import bot
 
+# region Настройки для YoutubeDL
 ytdl_format_options = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
@@ -31,7 +30,24 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
+# endregion
 
+
+
+async def get_next_music(name, queue):
+    while True:
+        # Получить "рабочий элемент" вне очереди.
+        sleep_for = await queue.get()
+
+        # Спать "sleep_for" секунд.
+        await asyncio.sleep(sleep_for)
+
+        # Сообщение очереди, для обработки «рабочего элемента».
+        queue.task_done()
+
+        print(f'{name} has slept for {sleep_for:.2f} seconds')
+
+# Поиск видео с Youtube
 def search(arg):
     with YoutubeDL({'format': 'bestaudio', 'noplaylist': 'True'}) as ydl:
         try:
@@ -42,7 +58,6 @@ def search(arg):
             info = ydl.extract_info(arg, download=False)
 
     return (info, info['formats'][0]['url'])
-
 
 class audio_commands(commands.Cog):
     def __init__(self, bot):
@@ -92,6 +107,7 @@ class audio_commands(commands.Cog):
 
     @commands.command()
     async def play(self, ctx, *, query):
+
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice:
             if voice.is_connected():
@@ -109,9 +125,9 @@ class audio_commands(commands.Cog):
         video, source = search(query)
 
         voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
-
         user_name = ctx.message.author.display_name
         await ctx.send(f"{user_name} " + "включил " + video["title"])
+
 
     @commands.command()
     async def play_file(self, ctx):
@@ -124,9 +140,8 @@ class audio_commands(commands.Cog):
         if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
             pass
         else:
-            await ctx.send("Файл "f"{attach.filename}"+" не является аудиофайлом")
+            await ctx.send("Файл "f"{attach.filename}" + " не является аудиофайлом")
             return 0
-
 
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice:
@@ -166,6 +181,7 @@ class audio_commands(commands.Cog):
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice.is_playing():
             voice.pause()
+            await ctx.send(ctx.message.author.display_name + " поставил меня на паузу")
         else:
             await ctx.send("Сейчас ничего не играет")
 
@@ -174,6 +190,7 @@ class audio_commands(commands.Cog):
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice.is_paused():
             voice.resume()
+            await ctx.send(ctx.message.author.display_name + " снял меня с паузы")
         else:
             await ctx.send("Аудио не на паузе")
 

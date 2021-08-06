@@ -5,7 +5,7 @@ import time
 import discord
 from discord.ext import commands
 
-from main import bot, admin_id
+from main import bot, creator_id
 from user_data_commands import change_balance, get_balance, create_balance
 
 
@@ -50,7 +50,7 @@ class other_commands(commands.Cog):
 
     @commands.command()
     async def join(self, ctx, channel_name):
-        if ctx.message.author.id == admin_id:
+        if ctx.message.author.id == creator_id:
             voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
             if voice and voice.is_connected():
                 await ctx.send("Я уже зашёл на канал")
