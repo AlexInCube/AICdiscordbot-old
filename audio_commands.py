@@ -28,24 +28,21 @@ ffmpeg_options = {
     'options': '-vn'
 }
 
+FFMPEG_OPTS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+
 
 # endregion
 
 
-
-async def get_next_music(name, queue):
+async def audio_player_task(queue, voice):
     while True:
-        # Получить "рабочий элемент" вне очереди.
-        sleep_for = await queue.get()
+        source = await queue.get()
 
-        # Спать "sleep_for" секунд.
-        await asyncio.sleep(sleep_for)
+        # queue.task_done()
+        print("Task End")
 
-        # Сообщение очереди, для обработки «рабочего элемента».
-        queue.task_done()
-
-        print(f'{name} has slept for {sleep_for:.2f} seconds')
 
 # Поиск видео с Youtube
 def search(arg):
@@ -59,9 +56,11 @@ def search(arg):
 
     return (info, info['formats'][0]['url'])
 
+
 class audio_commands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.MusicQueue = asyncio.Queue()
 
     @commands.command()
     async def extract_audio(self, ctx, url: str):
@@ -106,8 +105,8 @@ class audio_commands(commands.Cog):
             return
 
     @commands.command()
-    async def play(self, ctx, *, query):
-
+    async def play(self, ctx, *args):
+        # Проверка что автор сообщения находится в голосовом канале
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice:
             if voice.is_connected():
@@ -120,61 +119,48 @@ class audio_commands(commands.Cog):
             else:
                 await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
                 return
+        # Проверка на ссылку или прикреплённый файл
+        song_name = "none"
+        if len(args) == 0:  # Проверка на файл
+            if ctx.message.attachments == []:
+                await ctx.send("Отсутствует файл")
+                return 0
 
-        FFMPEG_OPTS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-        video, source = search(query)
-
-        voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
-        user_name = ctx.message.author.display_name
-        await ctx.send(f"{user_name} " + "включил " + video["title"])
-
-
-    @commands.command()
-    async def play_file(self, ctx):
-        if ctx.message.attachments == []:
-            await ctx.send("Отсутствует файл")
-            return 0
-
-        attach = ctx.message.attachments[0]
-
-        if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
-            pass
-        else:
-            await ctx.send("Файл "f"{attach.filename}" + " не является аудиофайлом")
-            return 0
-
-        voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-        if voice:
-            if voice.is_connected():
-                voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-        else:
-            channel = ctx.author.voice
-            if channel:
-                await channel.channel.connect()
-                voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+            attach = ctx.message.attachments[0]
+            if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
+                pass
             else:
-                await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
+                await ctx.send("Файл "f"{attach.filename}" + " не является аудиофайлом")
+                return 0
+
+            await attach.save(f"{attach.filename}")
+
+            if voice.is_playing():
+                voice.stop()
+
+            voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r"" + attach.filename))
+
+            song_name = f"{attach.filename}"
+
+            while voice.is_playing():
+                await asyncio.sleep(0.1)
+
+            song_there = os.path.isfile(r"" + attach.filename)
+            try:
+                if song_there:
+                    os.remove(r"" + attach.filename)
+            except PermissionError:
                 return
-
-        await attach.save(f"{attach.filename}")
-
-        if voice.is_playing():
-            voice.stop()
-
-        voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r"" + attach.filename))
+        elif len(args) == 1:  # Проверка на ссылку
+            query = args[0]
+            video, source = search(query)
+            if voice.is_playing():
+                voice.stop()
+            voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
+            song_name = video["title"]
 
         user_name = ctx.message.author.display_name
-        await ctx.send(f"{user_name} " + "включил " + f"{attach.filename}")
-
-        while voice.is_playing():
-            await asyncio.sleep(0.1)
-
-        song_there = os.path.isfile(r"" + attach.filename)
-        try:
-            if song_there:
-                os.remove(r"" + attach.filename)
-        except PermissionError:
-            return
+        await ctx.send(f"{user_name} " + "включил " + song_name)
 
     @commands.command()
     async def pause(self, ctx):
