@@ -6,7 +6,8 @@ import discord
 from discord.ext import commands
 
 from main import bot, creator_id
-from user_data_commands import change_balance, get_balance, create_balance
+from user_data_commands import change_balance, get_balance, create_balance, change_user_value_in_table, \
+    get_user_value_in_table
 
 
 class other_commands(commands.Cog):
@@ -19,7 +20,7 @@ class other_commands(commands.Cog):
         await ctx.send("У всех команд бота, префикс // \n"
                        "Сами команды: \n"
                        "extract_audio [ссылка на видео с youtube] - Извлекает аудиодорожку из видео на ютубе и скидывает её в текстовый канал. \n"
-                       "play [ссылка на видео с youtube/прикреплённый файл] - Мне нужно писать что эта команда делает?\n"
+                       "play [ссылка на видео с youtube/прикреплённый файл/любой текст (поиск)] - Мне нужно писать что эта команда делает?\n"
                        "pause - Приостанавливает, но не сбрасывает проигрывание аудиодорожки. \n"
                        "resume - Возобновляет проигрывание аудиодорожки, если оно было остановлено командой pause. \n"
                        "stop - Сбрасывает проигрывание аудиодорожки. \n"
@@ -28,6 +29,7 @@ class other_commands(commands.Cog):
                        "flip - Подкинуть монетку.\n"
                        "slot - Сыграть в слот машину.\n"
                        "balance - Посмотреть свои очки.\n"
+                       "stats - Посмотреть всю статистику о себе"
                        "timer - [секунд] - Запустить таймер, стандартное значение: 10 секунд.\n")
 
     # Команда roll аналогичная той что в Доте 2
@@ -70,16 +72,20 @@ class other_commands(commands.Cog):
     async def ping(self, ctx):
         """ Pong! """
         before = time.monotonic()
-        # before_ws = int(round(bot.latency * 1000, 1))
         message = await ctx.send("🏓 Понг")
         ping = (time.monotonic() - before) * 1000
-        await message.edit(content=f"🏓 Пинг: {int(ping)}")
+        await message.edit(content=f"Задержка к Discord API: {int(round(bot.latency * 1000, 1))}\n Задержка редактирования сообщения: {int(ping)}")
 
     @commands.command()
     async def timer(self, ctx, *args):
         second_int = 10
         if len(args) == 1:
-            second_int = int(args[0])
+            try:
+                second_int = int(args[0])
+            except:
+                await ctx.send("Целые числа пиши, а то я не понимаю.")
+                return 0
+
         try:
             if second_int > 300:
                 await ctx.send("Я не могу думать больше 300 секунд.")
@@ -99,33 +105,41 @@ class other_commands(commands.Cog):
         except ValueError:
             await ctx.send("Это должно быть числом!")
 
-
-
     @commands.command()
     async def slot(self, ctx):
-        """ Roll the slot machine """
+        """ Слот-машина """
         emojis = "🍎🍊🍐🍋🍉🍇🍓🍒"
         a = random.choice(emojis)
         b = random.choice(emojis)
         c = random.choice(emojis)
-
+        jackpot = 5
+        win = 1
         user_id = ctx.message.author.id
         user_name = "<@" + f"{str(user_id)}" + ">"
         slotmachine = f"**[ {a} {b} {c} ]\n{user_name}**,"
-        create_balance(user_id)
 
-        if (a == b == c):
-            change_balance(ctx, get_balance(user_id) + 5)
+        create_balance(user_id)
+        change_user_value_in_table(user_id, "user", "SlotsTotal",
+                                   get_user_value_in_table(user_id, "user", "SlotsTotal")+1)
+
+        if (a == b == c): # Если выпало 3 одинаковых фрукта
+            change_balance(user_id, get_balance(user_id) + jackpot)
+            change_user_value_in_table(user_id, "user", "SlotsWins",
+                                       get_user_value_in_table(user_id, "user", "SlotsWins") + 1)
             await ctx.send(
                 f"{slotmachine}"
                 + " ВАМ АХУЕТЬ КАК ПОВЕЗЛО! Вы получили 5 очков, проверьте баланс //balance 🎉")
-        elif (a == b) or (a == c) or (b == c):
-            change_balance(ctx, get_balance(user_id) + 1)
+        elif (a == b) or (a == c) or (b == c): # Если есть 2 повторяющихся фрукта
+            change_balance(user_id, get_balance(user_id) + win)
+            change_user_value_in_table(user_id, "user", "SlotsWins",
+                                       get_user_value_in_table(user_id, "user", "SlotsWins") + 1)
             await ctx.send(
                 f"{slotmachine}"
                 + " 2 совпадения в ряду, вы победили! Вы получили 1 очко, проверьте баланс //balance 🎉")
         else:
             await ctx.send(f"{slotmachine} нет совпадений, вы проиграли 😢")
+
+
 
 
 def setup(bot):

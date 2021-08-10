@@ -6,10 +6,9 @@ from discord.ext import commands
 from discord.ext.commands import bot
 from mysql.connector import errorcode
 
-
 from config import settings
 
-bot = commands.Bot(command_prefix=settings["prefix"])
+bot = commands.Bot(command_prefix=settings["prefix"], help_command=None)
 
 creator_id = 290168459944263680  # Можете сюда вставить свой айди
 
@@ -17,7 +16,7 @@ creator_id = 290168459944263680  # Можете сюда вставить сво
 cnx = None
 cur = None
 
-utility.load_cog_commands(bot,"audio_commands")
+utility.load_cog_commands(bot, "audio_commands")
 # region Подключаемся к базе данных MySQL
 
 
@@ -113,17 +112,19 @@ def check_connection_to_mysql():
 
 if check_connection_to_mysql():
     # Создаём таблицы в базе
-    TABLES = {'user': (
+    TABLES = {}
+    TABLES['user'] = (
         "CREATE TABLE `user`("
         "UserID BIGINT UNSIGNED NOT NULL UNIQUE,"
-        "Score int DEFAULT 0"
-        ") ENGINE=InnoDB"
-    )}
+        "Score int DEFAULT 0,"
+        "SlotsTotal int DEFAULT 0,"
+        "SlotsWins int DEFAULT 0"
+        ") ENGINE=InnoDB")
 
     for table_name in TABLES:
         table_description = TABLES[table_name]
         try:
-            print(utility.get_format_date_and_time() + "Создаём таблицу {}: ".format(table_name), end='')
+            print(utility.get_format_date_and_time() + f"Создаём таблицу {table_name}: ", end='')
             cur.execute(table_description)
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
@@ -134,9 +135,8 @@ if check_connection_to_mysql():
             print(utility.get_format_date_and_time() + "OK")
 # endregion
 
-
-utility.load_cog_commands(bot,"other_commands")
-utility.load_cog_commands(bot,"user_data_commands")
+utility.load_cog_commands(bot, "user_data_commands")
+utility.load_cog_commands(bot, "other_commands")
 
 
 # region События бота
@@ -151,8 +151,12 @@ async def on_ready():
 async def on_disconnect():
     global cnx
     global cur
-    cur.close()
-    cnx.close()
+    if isinstance(cnx, None):
+        return 0
+
+    if cnx.is_connected():
+        cur.close()
+        cnx.close()
 
 
 @bot.event
@@ -162,6 +166,13 @@ async def on_message(message):
         await bot.process_commands(message)
     except:  # Если человек неправильно написал команду, то забьём на это и не будем засирать терминал бота.
         return 0
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send(
+            embed=discord.Embed(description=f'{ctx.author.name}, команда не найдена!', colour=discord.Color.red()))
 
 
 # endregion

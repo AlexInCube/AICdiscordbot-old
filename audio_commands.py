@@ -105,8 +105,8 @@ class audio_commands(commands.Cog):
             return
 
     @commands.command()
-    async def play(self, ctx, *args):
-        # Проверка что автор сообщения находится в голосовом канале
+    async def play(self, ctx, *message):
+        # Проверка того, что автор сообщения находится в голосовом канале
         voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
         if voice:
             if voice.is_connected():
@@ -119,46 +119,56 @@ class audio_commands(commands.Cog):
             else:
                 await ctx.send(ctx.author.mention + " зайди сначала в голосовой канал")
                 return
-        # Проверка на ссылку или прикреплённый файл
-        song_name = "none"
-        if len(args) == 0:  # Проверка на файл
-            if ctx.message.attachments == []:
-                await ctx.send("Отсутствует файл")
-                return 0
 
-            attach = ctx.message.attachments[0]
-            if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
-                pass
-            else:
-                await ctx.send("Файл "f"{attach.filename}" + " не является аудиофайлом")
-                return 0
+        song_name = "none"  # Пишем сюда имя аудиофайла для отправки в чат
 
-            await attach.save(f"{attach.filename}")
+        if message and ctx.message.attachments == []:  # Проверка на ссылку или название видео
+            query = message[0]
 
-            if voice.is_playing():
-                voice.stop()
-
-            voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r"" + attach.filename))
-
-            song_name = f"{attach.filename}"
-
-            while voice.is_playing():
-                await asyncio.sleep(0.1)
-
-            song_there = os.path.isfile(r"" + attach.filename)
             try:
-                if song_there:
-                    os.remove(r"" + attach.filename)
-            except PermissionError:
-                return
-        elif len(args) == 1:  # Проверка на ссылку
-            query = args[0]
-            video, source = search(query)
+                video, source = search(query)
+            except:
+                await ctx.send(f"Видео {query} не было найдено")
+
             if voice.is_playing():
                 voice.stop()
+
             voice.play(discord.FFmpegPCMAudio(source, **FFMPEG_OPTS), after=lambda e: print('done', e))
             song_name = video["title"]
+        else:  # Если ничего нет, то проверяем скидывали файл вместе с сообщением
+            if ctx.message.attachments == []:
+                await ctx.send(
+                    "Вы где-то ошиблись, используйте //play [ссылка с Youtube/название видео/прикреплённый файл]")
+                return
+            else:
+                attach = ctx.message.attachments[0]
+                if attach.url.endswith('mp3') or attach.url.endswith('wav') or attach.url.endswith('ogg'):
+                    pass
+                else:
+                    await ctx.send("Файл "f"{attach.filename}" + " не является аудиофайлом")
+                    return 0
 
+                await attach.save(f"{attach.filename}")
+
+                if voice.is_playing():
+                    voice.stop()
+
+                voice.play(discord.FFmpegPCMAudio(executable="C:/ffmpeg/bin/ffmpeg.exe", source=r"" + attach.filename))
+
+                song_name = f"{attach.filename}"
+
+                while voice.is_playing():
+                    await asyncio.sleep(0.1)
+
+                song_there = os.path.isfile(r"" + attach.filename)
+                try:
+                    if song_there:
+                        os.remove(r"" + attach.filename)
+                except PermissionError:
+                    return
+                return 0
+
+        # Пишем кто вызвал музыку и какую
         user_name = ctx.message.author.display_name
         await ctx.send(f"{user_name} " + "включил " + song_name)
 
