@@ -151,7 +151,8 @@ async def on_ready():
 async def on_disconnect():
     global cnx
     global cur
-    if isinstance(cnx, None):
+
+    if cnx is None:
         return 0
 
     if cnx.is_connected():

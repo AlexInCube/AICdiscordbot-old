@@ -46,6 +46,11 @@ class other_commands(commands.Cog):
             await ctx.send("Это должно быть числом!")
 
     @commands.command()
+    async def alcotest(self, ctx):
+        beer_perc = random.randint(0, 100)
+        await ctx.send(f":beer: Ваша кровь состоит на {beer_perc}% из пива :beer: ")
+
+    @commands.command()
     async def flip(self, ctx):
         await ctx.send(random.choice(["Орёл", "Решка"]))
 
